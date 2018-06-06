@@ -77,3 +77,7 @@ per_minute_hustle_stats_2017_2018_NEW <- subset(per_minute_hustle_stats_2017_201
 
 all_per_minute <- cbind(per_minute_player_stats_2017_2018_NEW, per_minute_hustle_stats_2017_2018_NEW)
 write.csv(all_per_minute, "all_per_minute_2017_2018.csv")
+
+write.table(all_per_minute, file='all_per_minute_2017_2018.tsv', 
+            quote=FALSE, sep='\t', col.names = NA)
+
