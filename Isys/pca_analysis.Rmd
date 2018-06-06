@@ -1,0 +1,74 @@
+---
+title: "PCA_analysis"
+author: "Isys"
+date: "6/6/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## R Markdown
+library(mclust)
+library(cluster)
+library(FactoMineR)
+library(descr)
+library(dplyr)
+library(tidyr)
+
+setwd("/Users/isysjo/Documents/Summer REU 2018/SportsAnalytics/R")
+
+source('preprocess_individuals.R')
+
+# get aggregate player data
+aggregate_players <- get_aggregate_players()
+
+# make a copy of detailed positions
+aggregate_players <- aggregate_players %>% mutate(PosDetail = Pos)
+
+# group regular positions
+levels(aggregate_players$Pos) <- c('Center',
+                                   'Center',
+                                   'Forward',
+                                   'Forward',
+                                   'Forward',
+                                   'Guard',
+                                   'Guard')
+
+# remove players who haven't played more than 50 minutes
+aggregate_players <- aggregate_players %>% filter(MP > 50)
+
+# get numeric data (excluding result, GS, MP, and GmSc)
+numeric <- aggregate_players %>% select(FG:PTS)
+
+# set NA percentages to 0
+numeric[is.na(numeric)] <- 0
+
+# scale numeric data before clustering
+numeric_scaled <- scale(numeric)
+
+#divisive clustering method
+dian <- diana(numeric_scaled)
+
+clusters_added_diana <- cbind(aggregate_players, cluster = cutree(dian,3))
+
+# do pca
+pca <- PCA(numeric_scaled)
+# overlay scaled points colored coded by cluster on the variable factor plot
+points(numeric_scaled, col=ifelse(clusters_added_diana$cluster ==1, "red", ifelse(clusters_added_diana$cluster ==2, "blue", "green")), xlim= c(-.2,1))
+
+# summary(pca) gives eigenvalues for the PCA dimensions and the % percentage each accounts for
+# one of the rules of thumbs for choosing a number of dimensions is to use the ones who's eigenvalues
+# are > 1 OR stop adding compoments when variance % exceeds some high value
+
+# by using pca$var$coord a table showing the variables and the correlations for the first
+# 5 dimensions is given
+# choose top related variables to first 5 PCA dimensions
+chosen_variables <- aggregate_players %>% select(FG, FG., FGA, X2P, X2P., FT, TRB, PTS)
+scaled_chosen <- scale(chosen_variables)
+
+
+# Pairwise Scatter Plots s
+clPairs(scaled_chosen, cl = clusters_added_diana$Pos)
+# table of correlations
+cor(scaled_chosen)
