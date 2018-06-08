@@ -1,0 +1,86 @@
+---
+title: "EM Clustering Analysis"
+author: "Isys"
+date: "6/5/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+library(EMcluster)
+library(factoextra)
+library(gmodels)
+library(descr)
+library(dplyr)
+library(tidyr)
+library(stargazer)
+library(mclust)
+library(cluster)
+library(FactoMineR)
+
+
+setwd("/Users/isysjo/Documents/Summer REU 2018/SportsAnalytics/R")
+
+source('preprocess_individuals.R')
+
+# new data
+clean_individual_player_data <- function(player_table) {
+  player_table <- player_table %>%
+    filter(MIN > 0)
+  return(player_table)
+}
+
+# modifications to load all players
+path_to_files <- '../Data/2017_2018/'
+filelist = paste0(path_to_files, list.files(path_to_files, 'all_per_minute_2017_2018.csv'))
+all_players <- read.csv(filelist)
+
+
+clean_load <- all_players %>% clean_individual_player_data()
+
+# get aggregate player data
+ aggregate_players <- clean_load 
+ 
+# remove players who haven't played more than 50 minutes
+aggregate_players <- aggregate_players %>% filter(MIN > 50)
+
+# get numeric data (excluding result, GS, MP, and GmSc)
+numeric <- aggregate_players %>% select(FGM:BOX_OUTS, -POS)
+
+# set NA percentages to 0
+numeric[is.na(numeric)] <- 0
+
+## scale numeric data before clustering
+numeric_scaled <- scale(numeric)
+
+## do model clustering on data
+model_clust <- Mclust(numeric_scaled, G=1:9, modelNames = mclust.options("emModelNames"))
+combi <- clustCombi(model_clust)
+classifications <- unlist(combi$classification[4])
+
+clusters_added_EM <- cbind(aggregate_players, cluster = classifications)
+plot(pca, choix = "ind",col.ind=ifelse(clusters_added_EM$cluster ==1, "red", ifelse(clusters_added_EM$cluster ==2, "blue", ifelse(clusters_added_EM$cluster ==4, "green", "black"))), label = "none")
+
+## doing PCA and the clustering and color coding based on components
+pca <- PCA(numeric_scaled)
+pca_coord <- pca$ind$coord
+pca_coord[is.na(pca_coord)] <- 0
+pca_coord_scaled <- scale(pca_coord)
+
+model_clust_pca2 <- Mclust(pca_coord_scaled, G=1:9, modelNames = mclust.options("emModelNames"))
+combi_pca <- clustCombi(model_clust_pca2)
+#   given the optimal number of clusters given by G in model_clust_pca
+#   use the associated classifications as the assignments
+clusters_pca <- unlist(combi_pca$classification[3])
+clusters_added_PCA <- cbind(pca_coord_scaled, cluster = clusters_pca) %>% as.data.frame()
+
+plot(pca, choix = "ind",col.ind=ifelse(clusters_added_PCA$cluster ==1, "red", ifelse(clusters_added_PCA$cluster ==2, "blue", ifelse(clusters_added_PCA$cluster ==4, "green", "black"))), label = "none")
+
+
+# Pairwise Scatter Plots s
+clPairs(pca_coord_scaled, cl = clusters_added_PCA$cluster)
+# table of correlations
+cor(pca_coord_scaled)
