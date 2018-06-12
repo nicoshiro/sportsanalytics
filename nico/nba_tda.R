@@ -145,10 +145,33 @@ m1 <- mapper1D(
   distance_matrix = dist(numeric_scaled),
   filter_values = numeric_scaled[,19],
   num_intervals = 10,
-  percent_overlap = 50,
+  percent_overlap = 30,
   num_bins_when_clustering = 10)
 g1 <- graph.adjacency(m1$adjacency, mode="undirected")
 plot(g1, layout = layout.auto(g1) )
+
+y.mean.vertex <- rep(0, m1$num_vertices)
+for (i in 1:m1$num_vertices){
+  points.in.vertex <- m1$points_in_vertex[[i]]
+  y.mean.vertex[i] <-mean((numeric_scaled[,20][points.in.vertex]))
+}
+
+vertex.size <- rep(0, m1$num_vertices)
+for (i in 1:m1$num_vertices){
+  points.in.vertex <- m1$points_in_vertex[[i]]
+  vertex.size[i] <- length((m1$points_in_vertex[[i]]))
+}
+
+y.mean.vertex.grey <- grey(1-(y.mean.vertex - min(y.mean.vertex))/(max(y.mean.vertex) - min(y.mean.vertex) ))
+V(g1)$color <- y.mean.vertex.grey
+V(g1)$size <- vertex.size
+plot(g1,main ="Mapper Graph")
+legend(x=-2, y=-1, c("y small","y medium","large y"),pch=21,
+       col="#777777", pt.bg=grey(c(1,0.5,0)), pt.cex=2, cex=.8, bty="n", ncol=1)
+
+View(m1)
+
+
 
 set.seed("123")
 nba.mapper <- mapper(
@@ -161,3 +184,41 @@ nba.graph <- graph.adjacency(nba.mapper$adjacency, mode="undirected")
 plot(nba.graph,
      layout = layout.auto(nba.graph),
      main ="TDA" )
+
+
+## tda with the PCA coordinates
+pca <- PCA(numeric_scaled) 
+pca_coord <- pca$ind$coord 
+pca_coord[is.na(pca_coord)] <- 0 
+pca_coord_scaled <- scale(pca_coord)
+
+set.seed("1")
+pca.mapper <- mapper1D(
+  distance_matrix = dist(pca_coord_scaled),
+  filter_values = pca_coord_scaled[,1],
+  num_intervals = 10,
+  percent_overlap = 30,
+  num_bins_when_clustering = 10)
+pca.graph <- graph.adjacency(pca.mapper$adjacency, mode="undirected")
+plot(pca.graph, layout = layout.auto(pca.graph) )
+
+pca.y.mean.vertex <- rep(0, pca.mapper$num_vertices)
+for (i in 1:pca.mapper$num_vertices){
+  points.in.vertex <- pca.mapper$points_in_vertex[[i]]
+  pca.y.mean.vertex[i] <-mean((pca_coord_scaled[,2][points.in.vertex]))
+}
+
+pca.vertex.size <- rep(0, pca.mapper$num_vertices)
+for (i in 1:pca.mapper$num_vertices){
+  points.in.vertex <- pca.mapper$points_in_vertex[[i]]
+  pca.vertex.size[i] <- length((pca.mapper$points_in_vertex[[i]]))
+}
+
+pca.y.mean.vertex.grey <- grey(1-(pca.y.mean.vertex - min(pca.y.mean.vertex))/(max(pca.y.mean.vertex) - min(pca.y.mean.vertex) ))
+V(pca.graph)$color <- pca.y.mean.vertex.grey
+V(pca.graph)$size <- pca.vertex.size
+plot(pca.graph,main ="Mapper Graph")
+legend(x=-2, y=-1, c("y small","y medium","large y"),pch=21,
+       col="#777777", pt.bg=grey(c(1,0.5,0)), pt.cex=2, cex=.8, bty="n", ncol=1)
+
+View(m1)
