@@ -18,6 +18,8 @@ library(descr)
 library(dplyr)
 library(tidyr)
 library(stargazer)
+library(FactoMineR)
+library(Matching)
 
 setwd("/Users/isysjo/Documents/Summer REU 2018/SportsAnalytics/R")
 
@@ -33,60 +35,152 @@ clean_individual_player_data <- function(player_table) {
 path_to_files <- '../Data/2017_2018/'
 filelist = paste0(path_to_files, list.files(path_to_files, 'all_per_minute_2017_2018.csv'))
 all_players <- read.csv(filelist)
-
+# get the training set and do same things to training set as full set
+ap_training <- read.csv('../Data/train_test/player_train.csv')
 
 clean_load <- all_players %>% clean_individual_player_data()
 
 # get aggregate player data
- aggregate_players <- clean_load 
+ aggregate_players <- clean_load
+aggregate_training <- ap_training %>% clean_individual_player_data()
 
 # remove players who haven't played more than 50 minutes
 aggregate_players <- aggregate_players %>% filter(MIN > 50)
+aggregate_training <- aggregate_training %>% filter(MIN > 50)
 
 # get numeric data (excluding result, GS, MP, and GmSc)
 numeric <- aggregate_players %>% select(FGM:BOX_OUTS, -POS)
-
-
-
-### 2015-2016 data exploration
-
-#source('preprocess_individuals.R')
-
-
-# get aggregate player data
-#aggregate_players <- get_aggregate_players()
-
-# make a copy of detailed positions
-#aggregate_players <- aggregate_players %>% mutate(PosDetail = Pos)
-
-# group regular positions
-#levels(aggregate_players$Pos) <- c('Center',
-#                                   'Center',
-#                                   'Forward',
-#                                   'Forward',
-#                                   'Forward',
-#                                   'Guard',
-#                                   'Guard')
-
-# remove players who haven't played more than 50 minutes
-#aggregate_players <- aggregate_players %>% filter(MP > 50)
-
-# get numeric data (excluding result, GS, MP, and GmSc)
-#numeric <- aggregate_players %>% select(FG:PTS)
+numeric_training <- aggregate_training %>% select(FGM:BOX_OUTS, -POS)
 
 # set NA percentages to 0
 numeric[is.na(numeric)] <- 0
+numeric_training[is.na(numeric_training)] <- 0
 
-# scale numeric data before clustering
+## scale numeric data before clustering
 numeric_scaled <- scale(numeric)
+ns_training <- scale(numeric_training)
 
+## clustering data not includng PTS & PLUS_MINUS
+chosen <- aggregate_players %>% select(FGM:BOX_OUTS, -POS, -PTS, -PLUS_MINUS)
+chosen[is.na(chosen)] <- 0
+chosen_scaled <- scale(chosen) 
+
+filtered_training <- aggregate_training %>% select(FGM:BOX_OUTS, -POS, -PTS, -PLUS_MINUS)
+filtered_training[is.na(filtered_training)] <- 0
+filtered_scaled <- scale(filtered_training)
+
+## ks test function to check signifiant attributes of cluster
+group_comparison <- function(group_1) {
+    pvals <- c()
+    for(i in 1:length(filtered_training[1,])){
+        if (length(group_1) == length(filtered_training[1,])) {
+              test <- ks.boot(group_1[i], filtered_training[,i], alternative = "two.sided")
+        }
+        else { test <- ks.boot(group_1[,i], filtered_training[,i], alternative = "two.sided") }
+        pvals[i] <- test$ks$p.value
+    }
+    return(pvals)
+}
+
+### h-clustering on training set
+# agglomerative clustering method (nesting)
+agg_t <- agnes(filtered_scaled, method= "complete")
+plot(agg_t)
+
+#divisive clustering method
+dian_t <- diana(filtered_scaled)
+plot(dian_t)
+
+# finding optimal cluster numbers for hierarchal clustering
+fviz_nbclust(filtered_scaled, hcut, method = "wss")
+fviz_nbclust(filtered_scaled, hcut, method = "silhouette")
+fviz_nbclust(filtered_scaled, hcut, method = "gap_stat")
+
+table_diana2 <- table(cutree(dian_t,4))
+
+# mark each with their assigned cluster for each hierarchal clustering method
+clusters_agg <- cbind(aggregate_training, cluster = cutree(agg_t,4))
+clusters_diana <- cbind(aggregate_training, cluster = cutree(dian_t,4))
+
+
+
+# plot them by PCA dimensions and color code by cluster
+pcat <- PCA(ns_training)
+plot(pcat, choix = "ind",col.ind=ifelse(clusters_agg$cluster ==1, "red", ifelse(clusters_agg$cluster ==2, "blue", ifelse(clusters_agg$cluster ==4, "green", "black"))), label = "none")
+
+plot(pcat, choix = "ind",col.ind=ifelse(clusters_diana$cluster ==1, "red", ifelse(clusters_diana$cluster ==2, "blue", ifelse(clusters_diana$cluster ==4, "green", "black"))), label = "none")
+
+## make table of attributes and the ks-test p-values for each cluster
+cluster_1 <- filtered_scaled[which(clusters_diana$cluster == 1),]
+cluster_2 <- filtered_scaled[which(clusters_diana$cluster == 2),]
+cluster_3 <- filtered_scaled[which(clusters_diana$cluster == 3),]
+# set this cluster as numeric because it had only one player in it
+cluster_4 <- as.numeric(filtered_scaled[which(clusters_diana$cluster == 4),])
+
+plist <- list()
+plist[[1]] <- group_comparison(cluster_1)
+plist[[2]] <- group_comparison(cluster_2)
+plist[[3]] <- group_comparison(cluster_3)
+plist[[4]] <- group_comparison(cluster_4)
+
+div_val_trix <- do.call(rbind, plist)
+colnames(div_val_trix) <- colnames(filtered_training)
+rownames(div_val_trix) <- c("Cluster 1", "Cluster 2", "Cluster 3", "Cluster 4")
+
+## doing PCA and the clustering and color coding based on components
+pcat_coord <- pcat$ind$coord
+pcat_coord[is.na(pcat_coord)] <- 0
+pcat_coord_scaled <- scale(pcat_coord)
+
+diana_pcat <- diana(pcat_coord_scaled)
+agg_pcat <- agnes(pcat_coord_scaled)
+#   get optimal number of clusters
+fviz_nbclust(pcat_coord_scaled, hcut, method = "wss")
+fviz_nbclust(pcat_coord_scaled, hcut, method = "silhouette")
+fviz_nbclust(pcat_coord_scaled, hcut, method = "gap_stat")
+
+table_diana <- table(cutree(diana_pcat,6))
+
+clusters_PCA_D <- as.data.frame(cbind(pcat_coord_scaled, cluster = cutree(diana_pcat,6)))
+clusters_PCA_D <- cbind(clusters_PCA_D, Name = aggregate_training$PLAYER_NAME)
+
+plot(pcat, choix = "ind",col.ind=ifelse(clusters_PCA_D$cluster ==1, "red",
+  ifelse(clusters_PCA_D$cluster ==2, "blue", 
+    ifelse(clusters_PCA_D$cluster ==3, "green", 
+      ifelse(clusters_PCA_D$cluster ==4, "purple", 
+        ifelse(clusters_PCA_D$cluster ==5,"black", "orange"))))), label = "none")
+        
+        
+## make table of attributes and the ks-test p-values for each cluster  
+pca_1 <- filtered_scaled[which(clusters_PCA_D$cluster == 1),]
+pca_2 <- filtered_scaled[which(clusters_PCA_D$cluster == 2),]
+pca_3 <- filtered_scaled[which(clusters_PCA_D$cluster == 3),]
+pca_4 <- filtered_scaled[which(clusters_PCA_D$cluster == 4),]
+pca_5 <- filtered_scaled[which(clusters_PCA_D$cluster == 5),]
+# set this cluster as numeric because it had only one player in it
+pca_6 <- as.numeric(filtered_scaled[which(clusters_PCA_D$cluster == 6),])        
+
+pca_list <- list()
+pca_list[[1]] <- group_comparison(pca_1)
+pca_list[[2]] <- group_comparison(pca_2)
+pca_list[[3]] <- group_comparison(pca_3)
+pca_list[[4]] <- group_comparison(pca_4)
+pca_list[[5]] <- group_comparison(pca_5)
+pca_list[[6]] <- group_comparison(pca_6)
+
+div_pca_trix <- do.call(rbind, pca_list)
+colnames(div_pca_trix) <- colnames(filtered_training)
+rownames(div_pca_trix) <- c("Cluster 1", "Cluster 2", "Cluster 3", "Cluster 4", "Cluster 5", "Cluster 6")
+
+
+
+
+
+
+### h-clustering on full data set
 # agglomerative clustering method (nesting)
 agg <- agnes(numeric_scaled, method= "complete")
 plot(agg)
-
-# default agglomerative clustering method
-km.res <- hclust(dist(numeric_scaled), "complete")
-plot(km.res)
 
 #divisive clustering method
 dian <- diana(numeric_scaled)
@@ -100,11 +194,11 @@ fviz_nbclust(numeric_scaled, hcut, method = "gap_stat")
 # nb <- NbClust(numeric_scaled.num, diss.t, distance = NULL, min.nc = 2,
 #              max.nc = 15, method = "complete")
 
-# show them as tables
-table_agg2 <- table(cutree(agg,6))
-table_agg <- table(cutree(agg,3))
-table_diana <- table(cutree(dian,3))
-table_diana2 <- table(cutree(dian,4))
+## show them as tables
+#table_agg2 <- table(cutree(agg,6))
+#table_agg <- table(cutree(agg,3))
+#table_diana <- table(cutree(dian,3))
+#table_diana2 <- table(cutree(dian,4))
 
 # mark each with their assigned cluster for each hierarchal clustering method
 clusters_added_agg <- cbind(aggregate_players, cluster = cutree(agg,3))
@@ -133,7 +227,7 @@ table_agg_pca <- table(cutree(agg_pca,4))
 table_diana_pca <- table(cutree(diana_pca,6))
 
 clusters_added_PCA_D <- as.data.frame(cbind(pca_coord_scaled, cluster = cutree(diana_pca,6)))
-#clusters_added_PCA_A <- cbind(pca_coord_scaled, cluster = cutree(agg_pca,3))
+clusters_added_PCA_D <- cbind(clusters_added_PCA_D, Name = aggregate_players$PLAYER_NAME)
 
 plot(pca, choix = "ind",col.ind=ifelse(clusters_added_PCA_D$cluster ==1, "red",
   ifelse(clusters_added_PCA_D$cluster ==2, "blue", 
@@ -141,6 +235,11 @@ plot(pca, choix = "ind",col.ind=ifelse(clusters_added_PCA_D$cluster ==1, "red",
       ifelse(clusters_added_PCA_D$cluster ==4, "purple", 
         ifelse(clusters_added_PCA_D$cluster ==5,"black", "orange"))))), label = "none")
         
+
+
+
+
+
 
 
 # make table for position breakdown in each cluster
@@ -183,8 +282,3 @@ for (colnum in 2:(num_clusters+1)) {
 }
 # print as latex
 stargazer(row.props, type = 'latex')
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
