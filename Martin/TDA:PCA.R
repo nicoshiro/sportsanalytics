@@ -16,24 +16,26 @@ player_train_filtered <- read_csv("~/Desktop/sportsanalytics-master/data/player_
 # aggregate_players <- all_players %>% clean_individual_player_data()
 
 # remove players who haven't played more than 50 minutes
-train_fifty <- player_train_filtered %>% filter(MIN > 50)
+#Can be used to find players' corresponding to the results of mapper
+train_fifty <- player_train_filtered %>% filter(MIN > 50) 
 
 # get numeric data (excluding result, GS, MP, and GmSc)
-filtered_train_numeric <- train_fifty %>% select(FGM:BOX_OUTS, -POS)
+train_numeric <- train_fifty %>% select(FGM:BOX_OUTS, -POS)
 
 # set NA percentages to 0
-filtered_train_numeric[is.na(numeric)] <- 0
+filtered_train_numeric[is.na(train_numeric)] <- 0
 
 # scale numeric data before clustering
 train_scaled <- scale(filtered_train_numeric)
 
+dist_train <- select(as.data.frame(train_scaled), -PTS, -PLUS_MINUS)
 
 ### PCA Without PTS and +/-
 
 library(FactoMineR)
 #PCA function implemented over scaled training data excluding points and plus/minus
 
-pca <- PCA(as.data.frame(train_scaled) %>% filter(-PTS, -PLUS_MINUS)) 
+pca <- PCA(dist_train)
 plot(pc, type = 'l') # Four Principle Components
 
 pca_coord <- pca$ind$coord 
@@ -77,13 +79,14 @@ legend(x=-2, y=-1, c("y small","y medium","large y"),pch=21,
        col="#777777", pt.bg=grey(c(1,0.5,0)), pt.cex=2, cex=.8, bty="n", ncol=1)
 
 pca.mapper
-View(player_train_filtered)
+
 
 
 ### Mapper Witout PCA (ALSO EXCLUDING PTS and +/-)
+### Plus Minus Filter Function
 set.seed(123)
 reg.mapper <- mapper1D(
-  distance_matrix = dist(as.data.frame(train_scaled) %>% filter(-PTS, -PLUS_MINUS)),
+  distance_matrix = dist_train,
   filter_values = train_scaled[,20],
   num_intervals = 10,
   percent_overlap = 30,
@@ -110,10 +113,10 @@ plot(reg.graph,main ="Mapper Graph")
 legend(x=-2, y=-1, c("y small","y medium","large y"),pch=21,
        col="#777777", pt.bg=grey(c(1,0.5,0)), pt.cex=2, cex=.8, bty="n", ncol=1)
 
-
+### Points Per Minute Filter Function
 set.seed(123)
 reg2.mapper <- mapper1D(
-  distance_matrix = dist(as.data.frame(train_scaled) %>% filter(-PTS, -PLUS_MINUS)),
+  distance_matrix = dist_train,
   filter_values = train_scaled[,19],
   num_intervals = 10,
   percent_overlap = 30,
@@ -141,21 +144,53 @@ legend(x=-2, y=-1, c("y small","y medium","large y"),pch=21,
        col="#777777", pt.bg=grey(c(1,0.5,0)), pt.cex=2, cex=.8, bty="n", ncol=1)
 
 
+# (GENERAL MAPPER FUNCTION)
+set.seed("123")
+nba.mapper <- mapper(
+  dist_object = dist(dist_train),
+  filter_values = list(train_scaled[,19],train_scaled[,20]),
+  num_intervals = c(4,4),
+  percent_overlap = 20,
+  num_bins_when_clustering = 10)
+nba.graph <- graph.adjacency(nba.mapper$adjacency, mode="undirected")
+plot(nba.graph,
+     layout = layout.auto(nba.graph),
+     main ="TDA" )
+
+
+#Following code for KS TESTING DO NOT COPY AS IS< CHANGE NAMES TO FIT THE MAPPER GRAPH YOU ARE USING
+
 #Data frame that excludes scaled points and plus/minus
-dist_train <- as.data.frame(train_scaled) %>% filter(-PTS, -PLUS_MINUS)
+#dist_train <- as.data.frame(train_scaled) %>% filter(-PTS, -PLUS_MINUS)
+library(dplyr)
+dist_train <- select(as.data.frame(train_scaled), -PTS, -PLUS_MINUS)
 
-#Temporary Function for cluster five of the mapper graph (Change index to explore other clusters)
-sliced <- as.data.frame(slice(dist_train, reg2.mapper[["points_in_vertex"]][[12]]))
+#Temporary Function giving data frame of those within a cluster of the mapper graph (Change index to explore other clusters)
+#Change name of test to explore different mapper graphs
+mapper_vertex <- as.data.frame(slice(as.data.frame(train_scaled), nba.mapper[["points_in_vertex"]][[8]]))
 
+#Excludes members of the cluster
+pop <- as.data.frame(slice(as.data.frame(train_scaled), -nba.mapper[["points_in_vertex"]][[8]]))
+
+#KS TEST COMPARING CLUSTER AGAINST ALL TRAINING DATA
 library(Matching)
-ks.boot(as.data.frame(sliced[,15]), dist_train[,15])
+for (i in 1:dim(train_scaled)[2]){
+  print(i)
+  print(ks.boot(as.data.frame(mapper_vertex[,i]), train_scaled[,i]))  }
 
-#To View Players in Particular cluster
-View(slice(train_fifty, reg2.mapper[["points_in_vertex"]][[9]])) #(change indeices as needed) )
+
+#KS TEST COMPARING CLUSTER WITH AGANIST EVRYONE ELSE
+for (i in 1:dim(train_scaled)[2]){
+  print(i)
+  print(ks.boot(as.data.frame(mapper_vertex[,i]), pop[,i]))
+  }
 
 
-for (i in 1:dim(dist_train)[2]){
-print(i)
-print(ks.boot(as.data.frame(sliced[,i]), dist_train[,i]))  }
 
-slice(dist_train, reg2.mapper$points_in_vertex[[5]])
+#To View Players in Particular cluster 
+View(slice(train_fifty, reg2.mapper[["points_in_vertex"]][[8]])) #(change indeices as needed) )
+
+
+
+View(train_scaled)
+
