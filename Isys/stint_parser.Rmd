@@ -1,0 +1,63 @@
+---
+title: "Stint Parser"
+author: "Isys"
+date: "June 20, 2018"
+output: html_document
+---
+
+setwd("/Users/isysjo/Documents/Summer REU 2018/SportsAnalytics/R")
+
+path_to_files <- '../Data/2017_2018/'
+filelist = paste0(path_to_files, list.files(path_to_files, 'stints_2017_2018.csv'))
+all_stints <- read.csv(filelist)
+
+home <- list()
+away <- list()
+
+for(i in 1:39712) {
+home[[i]] <- colnames(all_stints[,6:549])[which(all_stints[i,6:549] == 1)]
+away[[i]] <- colnames(all_stints[,6:549])[which(all_stints[i,6:549] == -1)]
+}
+
+list_home <- sapply(home, paste0, collapse=",")
+list_away <- sapply(away, paste0, collapse=",")
+
+#stints_alt <- data.frame(HOME = list_home, AWAY = list_away, pt_diff_permin = all_stints$pt.diff.per.min, pt_differential = all_stints$pt.differential, Min_Played = all_stints$minutes_played)
+
+home_players <-data.frame(LINEUP = list_home, pt_diff_permin = all_stints$pt.diff.per.min, pt_differential = all_stints$pt.differential, Min_Played = all_stints$minutes_played)
+
+away_players <- data.frame(LINEUP = list_away, pt_diff_permin = negated_ptdiff, pt_differential = negated_ptdiffpm, Min_Played = all_stints$minutes_played)
+
+all_lineups <- rbind(home_players, away_players)
+
+negated_ptdiff <- sapply(all_stints$pt.differential, function(x)  -x)
+negated_ptdiffpm <- sapply(all_stints$pt.diff.per.min, function(x)  -x)
+
+write.csv(all_lineups, file = "all_lineups_2017_2018.csv")
+
+
+
+# aggregating the data
+unique_lineups <- levels(all_lineups$LINEUP)
+agg <- data.frame(TOTAL_MIN = numeric(), TOT_PT_DIFF= numeric())
+for(j in 1:length(unique_lineups)) {
+  test <- all_lineups %>% filter(all_lineups$LINEUP == unique_lineups[j]) %>% droplevels()
+  tmp <- sum(test$Min_Played)
+  agg_pd <- sum(test$pt_differential)/sum(test$Min_Played)
+  agg[j,] <- c(tmp,agg_pd)
+}
+aggregate_lineups <- cbind(agg, LINEUP = unique_lineups)
+write.csv(aggregate_lineups, file = "aggregate_lineups_2017_2018.csv")
+
+
+## lineup types
+get_lineup_type <- function(lineup, clusters_added) {
+   fixed_lineup <- as.character(sapply(strsplit(lineup, ','), function(x) sub("[.]", " ",x)))
+#   people <- clusters_added[grep(paste(fixed_lineup, collapse="|"),clusters_added$PLAYER_NAME),] %>% select(PLAYER_NAME, cluster)
+# make a list that has the cluster for each players and 0 if that player was not in the clusters list
+   people_edit <- sapply(fixed_lineup, 
+      function(x) if(x %in% clusters_added[grep(x, clusters_added$PLAYER_NAME),"PLAYER_NAME"]) 
+                      {clusters_added[grep(x,clusters_added$PLAYER_NAME),]$cluster} else {0} )
+   type <- paste(people_edit, collapse="")
+   return(type)
+}
