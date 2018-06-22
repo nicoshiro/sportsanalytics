@@ -4,6 +4,10 @@ author: "Isys"
 date: "June 20, 2018"
 output: html_document
 ---
+library(descr)
+library(dplyr)
+library(tidyr)
+
 
 setwd("/Users/isysjo/Documents/Summer REU 2018/SportsAnalytics/R")
 
@@ -52,12 +56,106 @@ write.csv(aggregate_lineups, file = "aggregate_lineups_2017_2018.csv")
 
 ## lineup types
 get_lineup_type <- function(lineup, clusters_added) {
-   fixed_lineup <- as.character(sapply(strsplit(lineup, ','), function(x) sub("[.]", " ",x)))
-#   people <- clusters_added[grep(paste(fixed_lineup, collapse="|"),clusters_added$PLAYER_NAME),] %>% select(PLAYER_NAME, cluster)
+   fixed_lineup <- strsplit(lineup, ',')[[1]]
+#   fixed_lineup <- as.character(sapply(strsplit(lineup, ','), function(x) sub("[.]", " ",x)))
+
 # make a list that has the cluster for each players and 0 if that player was not in the clusters list
    people_edit <- sapply(fixed_lineup, 
       function(x) if(x %in% clusters_added[grep(x, clusters_added$PLAYER_NAME),"PLAYER_NAME"]) 
                       {clusters_added[grep(x,clusters_added$PLAYER_NAME),]$cluster} else {0} )
+   people_edit <- sort(people_edit)
    type <- paste(people_edit, collapse="")
    return(type)
 }
+
+## lineup data from basketball-reference.com
+path_to_files <- '../Data/'
+filelist = paste0(path_to_files, list.files(path_to_files, 'complete_lineup_2017_2018.csv'))
+loaded_lineups <- read.csv(filelist)
+## fix up data frame
+loaded_lineups <- droplevels(loaded_lineups) %>% select(-6,-8)
+colnames(loaded_lineups) <- sapply(loaded_lineups[1,], factor) %>% as.character
+loaded_lineups <- loaded_lineups[-1,]
+colnames(loaded_lineups)[8:9] <- c("Posessions", "Opp_Posessions")
+
+remove_a <- which(loaded_lineups$Posessions %>% as.character == "Poss")
+remove_b <- which(loaded_lineups$Posessions %>% as.character == "Tm")
+
+loaded_lineups <- loaded_lineups[-c(remove_a,remove_b),]
+loaded_lineups <- loaded_lineups %>% select(-Tm, -Opp)
+
+
+raw_lineups <- sapply(loaded_lineups$Lineup, factor) %>% as.character
+
+players_and_teams <- aggregate_training %>% select(PLAYER_NAME, TEAM_ABBREVIATION)
+## get full names of the players in the lineups
+get_full_names <- function(rlineup,index) {
+    full_lineup_names <- c()
+#    print(paste("lineup",rlineup, sep=" "))
+#    print(index)
+    d <- strsplit(rlineup,"[|]")[[1]] %>% as.character %>% strsplit("[.]")
+    de <- lapply(d, function(x) gsub("(^\\s+)|(\\s+$)", "",x))
+#    print(index)
+    de[6] <- factor(loaded_lineups$Tm[index]) %>% as.character
+    
+    for(a in 1:5) {
+#    print(de)
+    candidates <- players_and_teams[grep(de[[a]][2], players_and_teams$PLAYER_NAME),]
+    candidates <- candidates[which(candidates$TEAM_ABBREVIATION %>% as.character == de[6]),]
+    candidates <- candidates[which(substring(candidates$PLAYER_NAME %>% as.character,1,1) == de[[a]][1]),]
+      if(length(candidates$PLAYER_NAME) > 0) {
+#       # print(de)
+#        if(substring(candidates$PLAYER_NAME, 1,1) == de[[a]][1]){
+#       print(candidates)
+#        full_lineup_names[a] <- candidates$PLAYER_NAME %>% as.character}
+      
+        full_lineup_names[a] <- candidates$PLAYER_NAME %>% as.character
+    } else {full_lineup_names[a] <- "NO PLAYER"}
+    }
+#    print(full_lineup_names)
+    return(full_lineup_names)
+}
+
+res <- sapply(raw_lineups, function(x)get_full_names(x,which(raw_lineups == x)[1]))
+
+lines <- apply(res,2, function(x) paste(x, collapse=",")) %>% as.character
+
+fixed_lineups <- cbind(loaded_lineups %>% select(-Lineup), Lineup = lines)
+
+write.csv(fixed_lineups, file = "complete_bf_lineups_2017_2018.csv")
+
+## cleaning + aggregating basketball-reference data
+
+c_lineups <- read.csv('complete_lineups_2017_2018.csv')
+com_lineups <- c_lineups %>% select(MP, FG., X3P., FT., PTS, Lineup) %>% filter(MP > 0)
+
+filt_lineups <- com_lineups[-grep("NO PLAYER", com_lineups$Lineup),]
+f_line <- filt_lineups %>% select(-Lineup)
+f_line[is.na(f_line)] <- 0
+filt_lineups <- cbind(f_line, Lineup = filt_lineups$Lineup)
+
+#aggregating the data
+uniq_lineups <- unique(filt_lineups$Lineup)
+aggr_bf <- data.frame(TOTAL_MIN = numeric(), TOT_PT_DIFF= numeric(), FG_PCT_DIFF = numeric(), X3P_PCT_DIFF = numeric())
+for(j in 1:length(uniq_lineups)) {
+  test <- com_lineups %>% filter(com_lineups$Lineup == uniq_lineups[j]) %>% droplevels()
+  tmp <- sum(test$MP)
+  agg_pd <- sum(test$PTS)/sum(test$MP)
+  agg_fgd <- (test$FG. * test$MP)/sum(test$MP)
+  agg_3pd <- (test$X3P. * test$MP)/sum(test$MP)
+  aggr_bf[j,] <- c(tmp,agg_pd, agg_fgd,agg_3pd)
+}
+
+aggr_bf[is.na(aggr_bf)] <- 0
+aggregate_bf_lineups <- cbind(aggr_bf, LINEUP = uniq_lineups)
+
+# filter the lineups based on playing time
+aggregate_bf_lineups <- aggregate_bf_lineups %>% filter(TOTAL_MIN > 25)
+write.csv(aggregate_bf_lineups, file = "aggregate_bf_lineups_2017_2018.csv")
+
+
+
+
+
+
+
