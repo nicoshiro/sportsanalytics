@@ -83,5 +83,6 @@ all_lineup_types <- sapply(train_aggregate_bf_lineups_2017_2018$LINEUP %>% as.ch
 #bind the lineup types with the clusters_added
 agnes_lineup_types <- cbind(clusters_agg_line, LINEUP_ID = all_lineup_types)
 
-
-
+clust_train_lineup <-augment(k_lineup, train_aggregate_bf_lineups_2017_2018)
+clust_train_lineup_type <- cbind(clust_train_lineup, LINEUP_ID = all_lineup_types)
+View(clust_train_lineup)
