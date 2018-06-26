@@ -11,47 +11,130 @@ library(tidyr)
 
 setwd("/Users/isysjo/Documents/Summer REU 2018/SportsAnalytics/R")
 
-path_to_files <- '../Data/2017_2018/'
-filelist = paste0(path_to_files, list.files(path_to_files, 'stints_2017_2018.csv'))
+path_to_files <- '../Data/'
+filelist <- paste0(path_to_files, 'modded_all_stints_2017_2018.csv')
 all_stints <- read.csv(filelist)
 
+
+#change stints to lineups
 home <- list()
 away <- list()
 
 for(i in 1:39712) {
-home[[i]] <- colnames(all_stints[,6:549])[which(all_stints[i,6:549] == 1)]
-away[[i]] <- colnames(all_stints[,6:549])[which(all_stints[i,6:549] == -1)]
+home[[i]] <- colnames(all_stints[,15:549])[which(all_stints[i,15:558] == 1)]
+away[[i]] <- colnames(all_stints[,15:549])[which(all_stints[i,15:558] == -1)]
 }
 
 list_home <- sapply(home, paste0, collapse=",")
 list_away <- sapply(away, paste0, collapse=",")
 
-#stints_alt <- data.frame(HOME = list_home, AWAY = list_away, pt_diff_permin = all_stints$pt.diff.per.min, pt_differential = all_stints$pt.differential, Min_Played = all_stints$minutes_played)
-
-home_players <-data.frame(LINEUP = list_home, pt_diff_permin = all_stints$pt.diff.per.min, pt_differential = all_stints$pt.differential, Min_Played = all_stints$minutes_played)
-
-away_players <- data.frame(LINEUP = list_away, pt_diff_permin = negated_ptdiff, pt_differential = negated_ptdiffpm, Min_Played = all_stints$minutes_played)
-
-all_lineups <- rbind(home_players, away_players)
+home_players <-data.frame(LINEUP = list_home, pt_diff_permin = all_stints$pt.diff.per.min, pt_differential = all_stints$pt.differential, Min_Played = all_stints$minutes_played, REB=all_stints$home_reb, BLK = all_stints$home_blk, STL = all_stints$home_stl, AST = all_stints$home_ast, TOV = all_stints$home_tov)
 
 negated_ptdiff <- sapply(all_stints$pt.differential, function(x)  -x)
 negated_ptdiffpm <- sapply(all_stints$pt.diff.per.min, function(x)  -x)
 
-write.csv(all_lineups, file = "all_lineups_2017_2018.csv")
+away_players <- data.frame(LINEUP = list_away, pt_diff_permin = negated_ptdiff, pt_differential = negated_ptdiffpm, Min_Played = all_stints$minutes_played, REB=all_stints$away_reb, BLK = all_stints$away_blk, STL = all_stints$away_stl, AST = all_stints$away_ast, TOV = all_stints$away_tov)
+
+all_lineups <- rbind(home_players, away_players)
+
+
+write.csv(all_lineups, file = "modded_all_lineups_2017_2018.csv")
 
 
 
 # aggregating the data
 unique_lineups <- levels(all_lineups$LINEUP)
-agg <- data.frame(TOTAL_MIN = numeric(), TOT_PT_DIFF= numeric())
+agg <- data.frame(TOTAL_MIN = numeric(), TOT_PT_DIFF= numeric(), REB = numeric(), BLK = numeric(),
+                      STL = numeric(), AST = numeric(), TOV=numeric())
 for(j in 1:length(unique_lineups)) {
   test <- all_lineups %>% filter(all_lineups$LINEUP == unique_lineups[j]) %>% droplevels()
   tmp <- sum(test$Min_Played)
   agg_pd <- sum(test$pt_differential)/sum(test$Min_Played)
-  agg[j,] <- c(tmp,agg_pd)
+  agg_reb <- sum(test$REB)/tmp
+  agg_blk <- sum(test$BLK)/tmp
+  agg_stl <- sum(test$STL)/tmp
+  agg_ast <- sum(test$AST)/tmp
+  agg_tov <- sum(test$TOV)/tmp
+  agg[j,] <- c(tmp,agg_pd,agg_reb,agg_blk,agg_stl,agg_ast,agg_tov)
 }
 aggregate_lineups <- cbind(agg, LINEUP = unique_lineups)
-write.csv(aggregate_lineups, file = "aggregate_lineups_2017_2018.csv")
+write.csv(aggregate_lineups, file = "modded_aggregate_lineups_2017_2018.csv")
+
+#remove lineups with players that are not in training set
+unfilt_lineups <- aggregate_lineups$LINEUP %>% as.character
+
+fixed_aggregate_training_names <- c()
+    for(l in 1:length(aggregate_training$PLAYER_NAME)) {
+#   remove all [.] from characters    
+    fixed_aggregate_training_names[l] <- sub("[.] ", "  ", aggregate_training$PLAYER_NAME[l] %>% as.character)
+    fixed_aggregate_training_names[l] <- sub("[.]", " ", aggregate_training$PLAYER_NAME[l] %>% as.character)
+    fixed_aggregate_training_names[l] <- sub("[.] ", " ", fixed_aggregate_training_names[l])
+#  account for special characters
+    fixed_aggregate_training_names[l] <- sub("[']", " ", fixed_aggregate_training_names[l])
+    fixed_aggregate_training_names[l] <- sub("[-]", " ", fixed_aggregate_training_names[l])
+    }
+
+for(k in 1:length(aggregate_lineups$LINEUP)) {
+  if(k %in% grep("[.][.]", unfilt_lineups)) {
+#   remove all [.] from characters
+      fixed_lineup <- as.character(sapply(
+          strsplit(aggregate_lineups$LINEUP[k] %>% as.character, ','), function(x) sub("[.][.]", " ",x)))
+      fixed_lineup <- sapply(
+          strsplit(fixed_lineup, ','), function(x) sub("[.]", " ",x))
+      fixed_lineup <- sapply(
+          strsplit(fixed_lineup, ','), function(x) sub("[.]", " ",x))
+      fixed_lineup <- sapply(
+          strsplit(fixed_lineup, ','), function(x) sub("[.]", " ",x))
+  }
+  else {
+    fixed_lineup <- as.character(sapply(
+          strsplit(aggregate_lineups$LINEUP[k] %>% as.character, ','), function(x) sub("[.]", " ",x)))
+    fixed_lineup <- sapply(
+          strsplit(fixed_lineup, ','), function(x) sub("[.]", " ",x))
+      fixed_lineup <- sapply(
+          strsplit(fixed_lineup, ','), function(x) sub("[.]", " ",x))
+  }
+  
+#  account for special characters
+    fixed_lineup <- sapply(
+          strsplit(fixed_lineup, ','), function(x) sub("[']", " ",x))
+    fixed_lineup <- sapply(
+          strsplit(fixed_lineup, ','), function(x) sub("[-]", " ",x))
+    p_edit <- sapply(fixed_lineup, 
+      function(x) if(x %in% fixed_aggregate_training_names) 
+                      {aggregate_training$PLAYER_NAME[grep(x, fixed_aggregate_training_names)]} else {"NO PLAYER"} )
+    unfilt_lineups[k] <- paste(sort(p_edit), collapse=",")
+}
+
+
+aggregate_lineups2 <- aggregate_lineups
+aggregate_lineups2$LINEUP <- unfilt_lineups
+aggregate_lineups2 <- aggregate_lineups2[-grep("NO PLAYER", unfilt_lineups),]
+
+
+
+all_bf_lineups <- read.csv('aggregate_bf_lineups_2017_2018.csv')
+# put the added stats with the other lineup data
+indexes <- c()
+for(d in 1:nrow(all_bf_lineups)) {
+# find the lineup that has the same players as all_bf_lineups
+   current_line <- all_bf_lineups$LINEUP[d] %>% as.character %>%
+            strsplit(",") %>% unlist %>% sort %>% paste(collapse = ',')
+   if(length(which(aggregate_lineups2$LINEUP == current_line)) > 0) {
+      indexes[d] <- which(aggregate_lineups2$LINEUP == current_line)
+   }
+   
+}
+
+extra_stats <- aggregate_lineups2[indexes,] %>% dplyr::select(REB:TOV)
+new_all_bf_lineups <- cbind(all_bf_lineups,extra_stats)
+
+new_all_bf_lineups <- na.omit(new_all_bf_lineups)
+
+
+write.csv(new_all_bf_lineups, file = "aggregated_bf_lineups_more_stats_2017_2018.csv")
+
+
 
 
 ## lineup types
@@ -67,6 +150,9 @@ get_lineup_type <- function(lineup, clusters_added) {
    type <- paste(people_edit, collapse="")
    return(type)
 }
+
+
+
 
 ## lineup data from basketball-reference.com
 path_to_files <- '../Data/'
@@ -152,8 +238,6 @@ aggregate_bf_lineups <- cbind(aggr_bf, LINEUP = uniq_lineups)
 # filter the lineups based on playing time
 aggregate_bf_lineups <- aggregate_bf_lineups %>% filter(TOTAL_MIN > 25)
 write.csv(aggregate_bf_lineups, file = "aggregate_bf_lineups_2017_2018.csv")
-
-
 
 
 
