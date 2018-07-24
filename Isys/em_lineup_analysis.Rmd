@@ -1,0 +1,136 @@
+---
+title: "EM Lineup Clustering Analysis"
+author: "Isys"
+date: "6/22/2018"
+output: html_document
+---
+
+library(factoextra)
+library(gmodels)
+library(descr)
+library(dplyr)
+library(tidyr)
+library(mclust)
+library(cluster)
+library(FactoMineR)
+library(Matching)
+library(DirichletReg)
+
+setwd("/Users/isysjo/Documents/Summer REU 2018/SportsAnalytics/R")
+source("../Isys/cluster_id_model.R")
+
+# get lineups
+all_lineups <- read.csv('../Data/2017_2018/train_for_lineups_full.csv')
+
+#cluster lineups
+numeric_lin <- all_lineups %>% dplyr::select(TOTAL_MIN:TOV, -TOTAL_MIN, -LINEUP, -TOT_PT_DIFF)
+numeric_lin_scaled <- scale(numeric_lin)
+
+line_mclust <- Mclust(numeric_lin_scaled, G=3:9, modelNames = mclust.options("emModelNames"))
+clusters_mclust <- cbind(all_lineups, cluster = line_mclust$classification)
+
+plot(pcat, choix = "ind",col.ind=rainbow(3)[clusters_mclust$cluster], label = "none")
+#pca_mclust <- Mclust(pcat$ind$coord %>% scale, G=3:9, modelNames = mclust.options("emModelNames"))
+#cluster_pcam <- cbind(all_lineups, cluster = pca_mclust$classification)
+
+# use z-score matrix to find features of each cluster
+## make table of attributes and the ks-test p-values for each cluster
+cluster_1 <- numeric_lin_scaled[which(clusters_mclust$cluster == 1),]
+cluster_2 <- numeric_lin_scaled[which(clusters_mclust$cluster == 2),]
+cluster_3 <- numeric_lin_scaled[which(clusters_mclust$cluster == 3),]
+
+zlist <- list()
+zlist[[1]] <- zscores_for_cluster(cluster_1,numeric_lin_scaled)
+zlist[[2]] <- zscores_for_cluster(cluster_2,numeric_lin_scaled)
+zlist[[3]] <- zscores_for_cluster(cluster_3,numeric_lin_scaled)
+
+
+zscores <- do.call(rbind, zlist)
+colnames(zscores) <- colnames(numeric_lin_scaled)
+rownames(zscores) <- c("Cluster 1", "Cluster 2", "Cluster 3")
+
+
+# get clusters for individual players
+# new data
+clean_individual_player_data <- function(player_table) {
+  player_table <- player_table %>%
+    filter(MIN > 0)
+  return(player_table)
+}
+
+ap_training <- read.csv('../Data/train_test/player_train_filtered_for_lineups.csv')
+aggregate_training <- ap_training %>% clean_individual_player_data()
+
+aggregate_training <- aggregate_training %>% filter(MIN > 50)
+
+filtered_training <- aggregate_training %>% dplyr::select(FGM:BOX_OUTS, -POS)
+filtered_training[is.na(filtered_training)] <- 0
+filtered_scaled <- scale(filtered_training)
+
+model_clust <- Mclust(filtered_scaled, G=1:9, modelNames = mclust.options("emModelNames"))
+
+clusters_added_EM <- cbind(aggregate_training, cluster = model_clust$classification)
+
+
+# get lineup types for all lineups
+all_mlineup_types <- sapply(all_lineups$LINEUP %>% as.character, function(x) get_lineup_type(x, clusters_added_EM))
+#bind the lineup types with the clusters_added
+mclust_lineup_types <- cbind(clusters_mclust, LINEUP_ID = all_mlineup_types)
+rownames(mclust_lineup_types) <- NULL
+
+# Pairwise Scatter Plots s
+clPairs(numeric_lin_scaled, cl = clusters_mclust$cluster)
+
+#make table of proportions
+ct <- gmodels::CrossTable(mclust_lineup_types$LINEUP_ID, mclust_lineup_types$cluster,
+                 prop.r = TRUE, prop.c = TRUE, prop.t=TRUE, prop.chisq = FALSE)
+                 
+
+# lineup type bar graphs
+ggplot(mclust_lineup_types, aes(LINEUP_ID, FG_PCT_DIFF)) + geom_bar(stat="identity")
+ggplot(mclust_lineup_types, aes(LINEUP_ID, TOT_PT_DIFF)) + geom_bar(stat="identity")
+ggplot(mclust_lineup_types, aes(LINEUP_ID, REB)) + geom_bar(stat="identity")
+ggplot(mclust_lineup_types, aes(LINEUP_ID, STL)) + geom_bar(stat="identity")
+ggplot(mclust_lineup_types, aes(LINEUP_ID, AST)) + geom_bar(stat="identity")
+ggplot(mclust_lineup_types, aes(LINEUP_ID, TOV)) + geom_bar(stat="identity")
+                 
+
+### testing
+# given a new lineup of players, see the probabilities that they are in each cluster?
+# and then for each case, find the predicted plus-minus for whatever clusters it's likely in
+# compare
+# refine by comparing stats for indiduals verses their lineup
+
+# bring in testing data
+testing_data <- read.csv("test_for_lineups_full.csv")
+numeric_test <- testing_data %>% dplyr::select(TOTAL_MIN:TOV, -TOTAL_MIN, -LINEUP, -TOT_PT_DIFF)
+numeric_test_scaled <- scale(numeric_test)
+
+# get the lineup types of testing data
+all_testing_types <- sapply(testing_data$LINEUP %>% as.character, function(x) get_lineup_type(x, clusters_added_EM))
+#bind the lineup types with the clusters_added
+EM_testing_types <- cbind(testing_data, LINEUP_ID = all_testing_types)
+rownames(EM_testing_types) <- NULL
+
+#get prediction matrix for cluster+lineup_id model
+predictions <- sapply(EM_testing_types$LINEUP_ID, function(x) predict_ps(x, mclust_lineup_types))
+
+# find the best possibly performance of model on testing data
+opt_error <- get_optimal_error(predictions)
+
+predicted_stats <- get_predicted_stats()
+#get predictions and errors from model
+em_model_results <- get_errors_and_predictions(predictions, predicted_stats,mclust_lineup_types)
+
+plot(em_model_results$predictions[,3],testing_data$TOT_PT_DIFF)
+
+# find error with just regression
+error_reg <- mean((testing_data$TOT_PT_DIFF-predicted_points)^2)
+
+
+
+
+# optimal, 0.06087413
+# KNN
+# MTN 0.1777301
+#LDA 0.1733901
