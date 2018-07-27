@@ -27,3 +27,4 @@
 - `stint_parser`: Parses and aggregates stint data into lineup data. Also parses and aggregates data from [basketball-reference.com](basketball-reference.com) *Run this right after create_stints2017_2018_mod.R*
 - `johnson_graph.R`: Generates adjacency graph of lineups by player differential.
 - `cluster_id_model.R`: Gives the functions needed to do the Cluster+Lineup ID model descriped in paper.
+- `individual_lineup_regression.R`: Uses the basic lm function and explores the relationships between individual players statistics, clusters, and teams.
