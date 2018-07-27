@@ -28,3 +28,13 @@
 - `johnson_graph.R`: Generates adjacency graph of lineups by player differential.
 - `cluster_id_model.R`: Gives the functions needed to do the Cluster+Lineup ID model descriped in paper.
 - `individual_lineup_regression.R`: Uses the basic lm function and explores the relationships between individual players statistics, clusters, and teams.
+- `tda_cluster_lineups.R`: Uses topological data analysis to cluster the lineups into lineup types.
+- `tda_cluster_individuals.R`: Uses topological data analysis to cluster the individual players into new positions.
+- `scraper_player_stats.R`: Scrapes individual player stats from the 2017-2018 season from basketballreference.com.
+- `ridge_lasso_regression_lineups.R`: Runs the ridge regression and lasso regression model on the lineup data to try and predict plus minus.
+- `ridge_lasso_regression_individual_stats.R`: Runs the ridge regression and lasso regression model on the binded individual player data to try and predict plus minus.
+- `logit_regression_indiv_stats.R`: Runs logistic regression on the binded individual player data to try and predict whether a lineup will be positive or negative.
+- `knn_lineups_w_clusters.R`: Implements KNN on the lineup data to verify the cluster that it was placed into.
+- `create_warriors_indiv_stats_df.R`: Creates the binded individual player data frame from all combinations of the Golden State Warriors 2018-2019 roster.
+- `create_lakers_indiv_stats_df.R`: Creates the binded individual player data frame from all combinations of the LA Lakers 2018-2019 roster.
+- `create_all_star_df.R`: Creates the binded individual player data frame from all combinations of an all star team.
