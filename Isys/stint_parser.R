@@ -35,7 +35,7 @@ all_lineups <- rbind(home_players, away_players)
 write.csv(all_lineups, file = "modded_all_lineups_2017_2018.csv")
 
 
-
+all_lineups <- read.csv("modded_all_lineups_2017_2018.csv")
 # aggregating the data
 unique_lineups <- levels(all_lineups$LINEUP)
 agg <- data.frame(TOTAL_MIN = numeric(), TOT_PT_DIFF= numeric(), REB = numeric(), BLK = numeric(),
@@ -107,7 +107,7 @@ aggregate_lineups2 <- aggregate_lineups2[-grep("NO PLAYER", unfilt_lineups),]
 
 
 
-all_bf_lineups <- read.csv('aggregate_bf_lineups_2017_2018.csv')
+all_bf_lineups <- read.csv('../Data/2017_2018/aggregate_bf_lineups_2017_2018.csv')
 # put the added stats with the other lineup data
 indexes <- c()
 for(d in 1:nrow(all_bf_lineups)) {
@@ -128,22 +128,6 @@ new_all_bf_lineups <- na.omit(new_all_bf_lineups)
 
 write.csv(new_all_bf_lineups, file = "aggregated_bf_lineups_more_stats_2017_2018.csv")
 
-
-
-
-## lineup types
-get_lineup_type <- function(lineup, clusters_added) {
-  fixed_lineup <- strsplit(lineup, ',')[[1]]
-  #   fixed_lineup <- as.character(sapply(strsplit(lineup, ','), function(x) sub("[.]", " ",x)))
-  
-  # make a list that has the cluster for each players and 0 if that player was not in the clusters list
-  people_edit <- sapply(fixed_lineup, 
-                        function(x) if(x %in% clusters_added[grep(x, clusters_added$PLAYER_NAME),"PLAYER_NAME"]) 
-                        {clusters_added[grep(x,clusters_added$PLAYER_NAME),]$cluster} else {0} )
-  people_edit <- sort(people_edit)
-  type <- paste(people_edit, collapse="")
-  return(type)
-}
 
 
 

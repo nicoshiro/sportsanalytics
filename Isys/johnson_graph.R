@@ -94,14 +94,7 @@ V(j.graph.training)[1:302]$testing <- FALSE
 V(j.graph.training)[303:372]$testing <- TRUE
 V(j.graph.training)$LINEUP_ID <- all_mlineup_types
 
-df <- data.frame(ID = all_mlineup_types[1:302], PT_DIFF = all_lineups$TOT_PT_DIFF[1:302], 
-                 EST_EFF = V(j.graph.training)[1:302]$EST_EFF)
 
-ggplot(agnes_lineup_types[which(agnes_lineup_types$LINEUP_ID %>% as.character == "12345"),], 
-       aes(cluster, TOT_PT_DIFF, colour=cluster)) + geom_bar(stat="identity") + labs(title="Pt Diff of Lineup ID 12345 by Cluster")
-
-
-cor(numeric_lin_scaled[which(df$ID %>% as.character == "11123"),],numeric_lin_scaled[which(df$ID %>% as.character == "11128"),])
 
 for(w in 1:374) {
   V(j.graph.training)[w]$EST_EFF <- sum(numeric_lin_scaled[w,1:6]) - numeric_lin_scaled[w,7]
