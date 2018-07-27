@@ -21,3 +21,9 @@
 ### How to Run Interaction RAPM Model
 - If not already run, run `create_stints.R` then `train_test_split_stints.R` then `create_interaction_RAPM_design_matrix.R`.
 - Run `interaction_RAPM.R`.
+
+### NBA Analytics Summer 2018
+- `create_stints2017_2018_mod.R`: Parses play-by-play data into stint tables with counts for lineup statistics. Generates files needed to run other R scripts. *Run this before other R files*
+- `stint_parser`: Parses and aggregates stint data into lineup data. Also parses and aggregates data from [basketball-reference.com](basketball-reference.com) *Run this right after create_stints2017_2018_mod.R*
+- `johnson_graph.R`: Generates adjacency graph of lineups by player differential.
+- `cluster_id_model.R`: Gives the functions needed to do the Cluster+Lineup ID model descriped in paper.
