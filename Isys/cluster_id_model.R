@@ -257,3 +257,7 @@ get_errors_and_predictions <- function(prediction_matrix,p_stats,lineup_clusters
   
   return(df.results) 
 }
+
+                      
+# demonstration of how to use the functions from this file
+# seen in testing section of hclustering_lineup_analysis.Rmd
