@@ -1,14 +1,6 @@
 library(dplyr)
 library(readr)
 
-#### LINEUP DATA SETUP ###
-# load the full lineup stats (training)
-train_for_lineups_full_stats <- read_csv("~/Desktop/sportsanalytics-master/data/2017-2018 Data/lineups/train_for_lineups_full.csv")
-test_for_lineups_full_stats <- read_csv("~/Desktop/sportsanalytics-master/data/2017-2018 Data/lineups/test_for_lineups_full.csv")
-
-#Exclude non-numeric data
-train_lineups <- train_for_lineups_full_stats %>% dplyr::select(-LINEUP, -TOTAL_MIN, -X1, -X)
-
 ### INDIVIDUAL PLAYER SETUP ###
 # modifications to load all players
 player_train_filtered <- read_csv("~/Desktop/sportsanalytics-master/data/2017-2018 Data/lineups/player ID/player_train_filtered_for_lineups.csv")
