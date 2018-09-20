@@ -18,13 +18,6 @@ train_fifty <- player_train_filtered %>% filter(MIN > 50)
 # load the full lineup stats (training)
 train_for_lineups_full_stats <- read_csv("~/Desktop/sportsanalytics-master/data/2017-2018 Data/lineups/train_for_lineups_full.csv")
 
-#Exclude non-numeric data
-all_lineups <- train_for_lineups_full_stats %>% dplyr::select(-LINEUP, -TOTAL_MIN, -X1, -X, -TOT_PT_DIFF)
-
-# TESTING SET
-test_for_lineups_full_stats <- read_csv("~/Desktop/sportsanalytics-master/data/2017-2018 Data/lineups/test_for_lineups_full.csv")
-test_lineups <- test_for_lineups_full_stats %>% dplyr::select(-LINEUP, -TOTAL_MIN, -X1, -X, -TOT_PT_DIFF)
-
 #Make sure that the 'arm' and 'MASS' packages are not loaded before proceeding with the next line of code. 
 # Code will not work unless 'arm' and 'MASS' are detatched 
 source('prep_for_tree_revised.R')
