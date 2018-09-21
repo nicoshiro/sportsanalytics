@@ -1,15 +1,12 @@
 library(dplyr)
 library(readr)
 
-### INDIVIDUAL PLAYER SETUP ###
-# modifications to load all players
-player_train_filtered <- read_csv("~/Desktop/sportsanalytics-master/data/2017-2018 Data/lineups/player ID/player_train_filtered_for_lineups.csv")
-player_test_filtered <- read_csv("~/Desktop/sportsanalytics-master/data/player_test_for_lineups.csv")
+# ### INDIVIDUAL PLAYER SETUP ###
+NEW_all_per_minute_2017_2018 <- read_csv("~/Desktop/sportsanalytics-master/data/2017-2018 Data/NEW_all_per_minute_2017_2018.csv") ### Line subject to change depedning on where this file is saved
 
 # remove players who haven't played more than 50 minutes
-train_fifty <- rbind(player_train_filtered,player_test_filtered )
+train_fifty <- NEW_all_per_minute_2017_2018 %>% filter(MIN>50) 
 train_fifty[is.na(train_fifty)] <- 0
-train_fifty <- train_fifty[!duplicated(train_fifty), ]
 
 # replace the names shown below with the names of players from the team of chice, works for players with 50+ minutes playing time
 # I would recommed copying and pasting from train fifty to ensure player is in data set
