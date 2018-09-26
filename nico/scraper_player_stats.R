@@ -1,7 +1,11 @@
-library("nbaTools")
+library(nbaTools)
 library(dplyr)
 
 setwd("/Users/nicoshiro/Downloads/sports_analytics/data")
+
+per_minute_player <- nbaTools::GetPlayerStats(SeasonType = "Regular Season", PerMode = "PerMinute")
+per_minute_hustle_stats_2017_2018 <- nbaTools::GetPlayerHustleStats(SeasonType = "Regular Season", PerMode = "PerMinute")
+per_minute_lineup_stats_2017_2018 <- nbaTools::GetLineupStats(SeasonType = "Regular Season", PerMode = "PerMinute")
 
 # Scrape data using nbaTools
 BRef <- nbaTools::GetPlayerStats(source = "BRef", SeasonType = "Regular Season", PerMode = "PerMinute")
@@ -45,6 +49,3 @@ per_minute_hustle_stats_2017_2018_NEW <- subset(per_minute_hustle_stats_2017_201
 # Bind and write .csv
 all_per_minute <- cbind(per_minute_player_stats_2017_2018_NEW, per_minute_hustle_stats_2017_2018_NEW)
 write.csv(all_per_minute, "all_per_minute_2017_2018.csv")
-
-
-
