@@ -6,7 +6,7 @@ setwd("/Users/isysjo/Documents/Summer REU 2018/SportsAnalytics/R")
 # read in combined pbp stats for all games in the season
 # pbp_combined <- read.csv('../data/sample-pbp-log/sample-combined-pbp-stats.csv')
 print('Loading data...')
-pbp_combined <- read_csv('../Data/2017_2018/[10-17-2017]-[06-08-2018]-combined-stats.csv') # modified this and the wd to load data
+pbp_combined <- read_csv('../Data/2017_2018/[10-17-2016]-[06-08-2018]-combined-stats.csv') # modified this and the wd to load data
 # fix game_id column
 
 # initialize stint table with 1 column for each player as well as well
@@ -86,10 +86,10 @@ for (current_game_id in game_ids){
     if (setequal(current_players, previous_players)){
       # count the home rebounds and away rebounds for given stint
       #same for blocks, steals, assists
-      home_line <- pbp_table[row,] %>% dplyr::select(a1:a5) %>% unlist() %>%
+      home_line <- pbp_table[row,] %>% dplyr::select(h1:h5) %>% unlist() %>%
         as.vector() %>% sort()
       
-      away_line <- pbp_table[row,] %>% dplyr::select(h1:h5) %>% unlist() %>%
+      away_line <- pbp_table[row,] %>% dplyr::select(a1:a5) %>% unlist() %>%
         as.vector() %>% sort()
       
       #rebounds and tov count
