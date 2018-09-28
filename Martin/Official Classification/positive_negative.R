@@ -7,6 +7,7 @@ library(adabag)
 library(dplyr)
 library(e1071)
 library(stringr)
+
 ### INDIVIDUAL PLAYER SETUP ###
 # modifications to load all players
 player_train_filtered <- read_csv("~/Desktop/sportsanalytics-master/data/2017-2018 Data/lineups/player ID/player_train_filtered_for_lineups.csv")
@@ -411,3 +412,7 @@ running_check = apply_labels(running_vote,
 # Find the precision for elite (prob that an observation is elite given it was predicted to be elite = 10/12)
 cro(running_check$level,running_check$final_vote)
 
+
+library(ggplot2)
+results_test <- cbind(test_data, final_vote = run[-1,])
+ggplot(results_test, aes(TOT_PT_DIFF, fill = final_vote)) + geom_density(alpha = 0.2)
